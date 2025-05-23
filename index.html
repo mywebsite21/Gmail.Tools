@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Gmail টুলস V3</title>
+    <title>Gmail টুলস: নাম, জেনারেটর, এক্সট্রাক্টর, এবং ডুপ্লিকেট ডিটেক্টর</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link href="https://fonts.googleapis.com/css2?family=Comic+Neue:wght@400;700&family=Noto+Sans+Bengali:wght@400;700&display=swap" rel="stylesheet">
     <style>
@@ -149,12 +149,12 @@
             box-shadow: 0 3px 5px rgba(0, 0, 0, 0.2);
         }
 
-        .generate-btn, .process-btn {
+        .generate-btn, .process-btn, .check-gmail-btn {
             background: #f44336;
             color: #fff;
         }
 
-        .generate-btn:hover, .process-btn:hover {
+        .generate-btn:hover, .process-btn:hover, .check-gmail-btn:hover {
             background: #d32f2f;
         }
 
@@ -505,9 +505,12 @@
 </head>
 <body>
     <div class="container" id="mainContainer">
-        <div class="version-bar" id="versionBar">Free Version (3 দিনের ট্রায়াল চলছে)</div>
+        <div class="version-bar free" id="versionBar">Free Version (সাবস্ক্রিপশন প্রয়োজন)</div>
         <div class="notice">
             <i class="fas fa-exclamation-triangle"></i> নোটিস: ব্রাউজার ডাটা ক্লিয়ার অথবা কুকিজ ডিলিট করলে এখানে থাকা তথ্য ডিলিট হয়ে যাবে।
+        </div>
+        <div class="button-group">
+            <button class="check-gmail-btn" onclick="window.open('https://en.gmailcheck.com/', '_blank')"><i class="fas fa-envelope"></i> জিমেইল চেক করুন</button>
         </div>
         <h1><i class="fas fa-envelope"></i> Gmail টুলস</h1>
         <div class="tabs">
@@ -604,7 +607,7 @@
             <h2>কীভাবে কাজ করবেন</h2>
             <p>নিচের ভিডিও গাইড দেখুন কীভাবে এই টুলগুলো ব্যবহার করবেন:</p>
             <div class="subscription-info">
-                <p><a href="https://t.me/gmailtools21/3" target="_blank">টেলিগ্রামে ভিডিওটি দেখে কাজ করুন Click Now</a></p>
+                <p><a href="https://www.youtube.com" target="_blank">ভিডিও লিঙ্ক (পরে আপডেট করুন)</a></p>
             </div>
         </div>
 
@@ -619,7 +622,7 @@
             <h2><i class="fas fa-lock"></i> সাবস্ক্রিপশন প্রয়োজন</h2>
             <p>৩০ দিনের সাবস্ক্রিপশন কিনুন:</p>
             <p>১. ৩০ টাকা বিকাশে পাঠান: <strong>01775792780</strong> (পার্সোনাল)</p>
-            <p>২. পেমেন্টের স্ক্রিনশট পাঠান: <a href="https://wa.me/+8801775792780" target="_blank">+8801775792780</a></p>
+            <p>২. পেমেন্টের স্ক্রিনশট পাঠান whatsapp নাম্বারে এবং একটিভ কোড সংগ্রহ করুন: <a href="https://wa.me/+8801775792780" target="_blank">+8801775792780</a></p>
             <p>৩. অ্যাক্টিভেশন কোড লিখুন:</p>
             <input type="text" id="activationCode" placeholder="অ্যাক্টিভেশন কোড লিখুন">
             <div class="button-group">
@@ -632,14 +635,12 @@
 
     <script>
         // Subscription Logic
-        const VALID_CODE = '8757'; // সাবস্ক্রিপশন কোড
-        const FREE_TRIAL_DAYS = 3;
+        const VALID_CODE = '97'; // সাবস্ক্রিপশন কোড
         const SUBSCRIPTION_DAYS = 30;
 
         function checkSubscription() {
             const subscriptionData = JSON.parse(localStorage.getItem('subscription') || '{}');
             const { isPaid, expiry } = subscriptionData;
-            const usedFreeTrial = localStorage.getItem('usedFreeTrial') === 'true';
             const now = new Date();
             const versionBar = document.getElementById('versionBar');
 
@@ -649,26 +650,11 @@
                 document.getElementById('subscriptionModal').style.display = 'none';
                 versionBar.textContent = 'Paid Version';
                 versionBar.classList.remove('free');
-            } else if (!usedFreeTrial) {
-                // ফ্রি ট্রায়াল শুরু
-                const trialExpiry = new Date(now.getTime() + FREE_TRIAL_DAYS * 24 * 60 * 60 * 1000);
-                localStorage.setItem('subscription', JSON.stringify({ isPaid: false, expiry: trialExpiry.toISOString() }));
-                localStorage.setItem('usedFreeTrial', 'true');
-                document.getElementById('mainContainer').classList.remove('locked');
-                document.getElementById('subscriptionModal').style.display = 'none';
-                versionBar.textContent = 'Free Version (3 দিনের ট্রায়াল চলছে)';
-                versionBar.classList.add('free');
-            } else if (expiry && new Date(expiry) > now && !isPaid) {
-                // ফ্রি ট্রায়াল চলছে
-                document.getElementById('mainContainer').classList.remove('locked');
-                document.getElementById('subscriptionModal').style.display = 'none';
-                versionBar.textContent = 'Free Version (3 দিনের ট্রায়াল চলছে)';
-                versionBar.classList.add('free');
             } else {
                 // সাবস্ক্রিপশন প্রয়োজন
                 document.getElementById('mainContainer').classList.add('locked');
                 document.getElementById('subscriptionModal').style.display = 'flex';
-                versionBar.textContent = 'Free Version (ট্রায়াল শেষ)';
+                versionBar.textContent = 'Free Version (সাবস্ক্রিপশন প্রয়োজন)';
                 versionBar.classList.add('free');
             }
         }
