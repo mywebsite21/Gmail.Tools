@@ -1,0 +1,435 @@
+<!DOCTYPE html>
+<html lang="bn">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>GQ Admin Panel</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css"/>
+  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <style>
+    :root {
+      --bg: #0a0a0a; --surface: #111111; --card: #1a1a1a; --primary: #00e5ff; --accent: #ff6bcb; --text: #f5f5f5; --text-light: #aaaaaa; --border: #2a2a2a; --success: #00ff88; --warning: #ffcc00; --error: #ff3b5e; --hover: #222222; --shadow: 0 8px 30px rgba(0,0,0,0.5);
+    }
+    * { margin:0; padding:0; box-sizing:border-box; font-family:'Inter',sans-serif; }
+    body { background:var(--bg); color:var(--text); min-height:100vh; overflow-x:hidden; }
+
+    #loginContainer { display:flex; justify-content:center; align-items:center; height:100vh; background:var(--bg); }
+    .login-box { background:var(--card); padding:32px; border-radius:18px; width:360px; box-shadow:var(--shadow); border:1px solid var(--border); }
+    .login-box h2 { text-align:center; color:var(--primary); margin-bottom:24px; font-size:22px; }
+    .login-box input { width:100%; padding:14px 16px; margin:10px 0; background:var(--surface); border:1px solid var(--border); border-radius:12px; color:var(--text); font-size:15px; }
+    .login-box button { width:100%; padding:14px; background:var(--primary); color:black; border:none; border-radius:12px; font-weight:600; cursor:pointer; margin-top:10px; transition:0.3s; }
+    .login-box button:hover { background:#00b8d4; transform:scale(1.02); }
+    #loginError { color:var(--error); text-align:center; margin-top:12px; font-size:14px; display:none; }
+
+    .app { display:none; height:100vh; flex-direction:row; }
+    .sidebar { width:80px; background:var(--surface); border-right:1px solid var(--border); display:flex; flex-direction:column; align-items:center; padding:20px 0; gap:30px; }
+    .sidebar .logo { font-size:28px; font-weight:700; color:var(--primary); }
+    .sidebar .nav { display:flex; flex-direction:column; gap:20px; }
+    .sidebar .nav-btn { width:50px; height:50px; background:var(--card); border-radius:14px; display:flex; align-items:center; justify-content:center; cursor:pointer; transition:0.3s; color:var(--text-light); font-size:20px; }
+    .sidebar .nav-btn.active, .sidebar .nav-btn:hover { background:var(--primary); color:black; transform:scale(1.1); box-shadow:0 0 15px rgba(0,229,255,0.4); }
+    .sidebar .logout { margin-top:auto; }
+
+    .main { flex:1; padding:25px; overflow-y:auto; }
+    .header-bar { display:flex; justify-content:space-between; align-items:center; margin-bottom:25px; }
+    .header-bar h1 { font-size:22px; font-weight:600; color:var(--primary); }
+
+    .stats-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(180px,1fr)); gap:16px; margin-bottom:30px; }
+    .stat-box { background:var(--card); padding:18px; border-radius:16px; border:1px solid var(--border); text-align:center; box-shadow:var(--shadow); }
+    .stat-box .label { font-size:13px; color:var(--text-light); margin-bottom:6px; }
+    .stat-box .value { font-size:26px; font-weight:700; }
+
+    .content-card { background:var(--card); border-radius:16px; border:1px solid var(--border); box-shadow:var(--shadow); overflow:hidden; margin-bottom:20px; }
+    .card-header { padding:18px 22px; border-bottom:1px solid var(--border); background:var(--surface); display:flex; justify-content:space-between; align-items:center; }
+    .card-header h3 { font-size:18px; color:var(--primary); }
+    .card-body { padding:20px; }
+
+    .file-card { background:var(--surface); padding:16px; border-radius:14px; margin-bottom:14px; border-left:4px solid var(--primary); display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px; transition:0.3s; }
+    .file-card:hover { background:var(--hover); transform:translateY(-2px); }
+    .file-info .email { font-weight:600; color:var(--accent); font-size:15px; }
+    .file-info .details { font-size:13px; color:var(--text-light); margin-top:4px; }
+    .file-actions button { padding:8px 12px; border:none; border-radius:8px; font-weight:600; font-size:11px; cursor:pointer; transition:0.3s; margin:2px; }
+    .file-actions button:hover { transform:scale(1.05); }
+
+    .modal { display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.85); z-index:999; justify-content:center; align-items:center; backdrop-filter:blur(8px); }
+    .modal.active { display:flex; }
+    .modal-content { background:var(--card); width:90%; max-width:900px; border-radius:18px; border:1px solid var(--border); overflow:hidden; box-shadow:0 20px 60px rgba(0,0,0,0.6); }
+    .modal-header { padding:18px 24px; background:var(--surface); border-bottom:1px solid var(--border); display:flex; justify-content:space-between; align-items:center; }
+    .modal-header h2 { font-size:20px; color:var(--primary); }
+    .modal-close { cursor:pointer; font-size:22px; color:var(--text-light); }
+    .modal-body { padding:24px; max-height:70vh; overflow-y:auto; }
+
+    .settings-panel { background:var(--surface); padding:18px; border-radius:14px; border:1px solid var(--border); }
+    .setting-row { display:flex; align-items:center; gap:12px; margin-bottom:10px; }
+    .setting-row label { flex:1; font-size:14px; color:var(--text-light); }
+    .setting-row input { width:80px; padding:8px 12px; background:var(--card); border:1px solid var(--border); border-radius:10px; color:var(--text); text-align:center; }
+    .setting-row button { padding:8px 16px; background:var(--success); color:#000; border:none; border-radius:10px; font-weight:600; font-size:12px; cursor:pointer; }
+    .setting-row button:hover { background:#00cc66; }
+
+    .withdraw-item { background:var(--surface); padding:16px; border-radius:14px; margin-bottom:14px; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px; border-left:4px solid #ffcc00; }
+    .withdraw-item.paid { border-left-color: #00ff88; }
+    .withdraw-item.cancelled { border-left-color: #ff3b5e; }
+
+    @media(max-width:768px) {
+      .app { flex-direction:column; }
+      .sidebar { width:100%; height:70px; flex-direction:row; justify-content:space-around; padding:10px 0; }
+      .sidebar .nav { flex-direction:row; }
+      .main { padding:15px; }
+      .login-box { width:90%; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Login -->
+  <div id="loginContainer">
+    <div class="login-box">
+      <h2>Admin Login</h2>
+      <input type="email" id="adminEmail" placeholder="Admin Email" value="newadmin@gq.com" />
+      <input type="password" id="adminPass" placeholder="Password" value="newadmin123" />
+      <button onclick="adminLogin()">Login</button>
+      <p id="loginError">ভুল তথ্য</p>
+    </div>
+  </div>
+
+  <!-- App -->
+  <div class="app">
+    <div class="sidebar">
+      <div class="logo">GQ</div>
+      <div class="nav">
+        <div class="nav-btn active" onclick="showPage('home')"><i class="fas fa-home"></i></div>
+        <div class="nav-btn" onclick="showPage('settings')"><i class="fas fa-cog"></i></div>
+        <div class="nav-btn" onclick="openWithdrawModal()"><i class="fas fa-money-bill-wave"></i></div>
+      </div>
+      <div class="nav-btn logout" onclick="adminLogout()"><i class="fas fa-sign-out-alt"></i></div>
+    </div>
+
+    <div class="main">
+      <!-- Home -->
+      <div id="home" class="page" style="display:block;">
+        <div class="header-bar"><h1>Dashboard</h1></div>
+        <div class="stats-grid">
+          <div class="stat-box"><div class="label">Total Users</div><div class="value" id="totalUsers">0</div></div>
+          <div class="stat-box"><div class="label">Pending Sells</div><div class="value" id="pendingSells">0</div></div>
+          <div class="stat-box"><div class="label">Total Paid</div><div class="value" id="totalPaid">৳0</div></div>
+        </div>
+        <div class="content-card">
+          <div class="card-header"><h3>Pending Gmail Sells</h3></div>
+          <div class="card-body" id="filesList">Loading...</div>
+        </div>
+      </div>
+
+      <!-- Settings -->
+      <div id="settings" class="page" style="display:none;">
+        <div class="header-bar"><h1>Settings</h1></div>
+        <div class="content-card">
+          <div class="card-header"><h3>Gmail Price</h3></div>
+          <div class="card-body">
+            <div class="settings-panel">
+              <div class="setting-row">
+                <label>প্রতি জিমেইলের দাম:</label>
+                <span id="gmailPrice">৳6</span>
+              </div>
+              <div class="setting-row">
+                <label>নতুন দাম:</label>
+                <input type="number" id="priceInput" min="1" value="6" />
+                <button onclick="updateGmailPrice()">Update</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Withdraw Modal -->
+  <div id="withdrawModal" class="modal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2>Withdraw Requests</h2>
+        <span class="modal-close" onclick="closeModal()">×</span>
+      </div>
+      <div class="modal-body" id="withdrawList">Loading...</div>
+    </div>
+  </div>
+
+  <script>
+    const { jsPDF } = window.jspdf;
+    const firebaseConfig = { 
+      apiKey: "AIzaSyAR5mA28t5U1wW2q9DTHgYluV9_7M7jLKM", 
+      authDomain: "quality-ccd0b.firebaseapp.com", 
+      projectId: "quality-ccd0b", 
+      storageBucket: "quality-ccd0b.firebasestorage.app", 
+      messagingSenderId: "568793842819", 
+      appId: "1:568793842819:web:705403d3c429285f4b07b6" 
+    };
+    firebase.initializeApp(firebaseConfig);
+    const auth = firebase.auth();
+    const db = firebase.firestore();
+    const ADMIN_UID = ["pWw39K1QmHQu2D7ZvyLlAfM9xEf1", "PqM6jtinsDhNKogR4AB9h9iXGza2"];
+
+    let GMAIL_PRICE = 6;
+    let filesUnsubscribe = null;
+    let statsUnsubscribe = null;
+    let withdrawUnsubscribe = null;
+
+    function adminLogin() {
+      const email = document.getElementById('adminEmail').value.trim();
+      const pass = document.getElementById('adminPass').value;
+      const errorEl = document.getElementById('loginError');
+      if (!email || !pass) return errorEl.textContent = 'ইমেইল ও পাসওয়ার্ড দিন', errorEl.style.display = 'block';
+
+      errorEl.style.display = 'none';
+      auth.signInWithEmailAndPassword(email, pass)
+        .then(cred => {
+          if (ADMIN_UID.includes(cred.user.uid)) {
+            document.getElementById('loginContainer').style.display = 'none';
+            document.querySelector('.app').style.display = 'flex';
+            loadSettings();
+            loadStats();
+            loadFiles();
+          } else {
+            auth.signOut();
+            errorEl.textContent = 'এডমিন অ্যাক্সেস নেই!';
+            errorEl.style.display = 'block';
+          }
+        })
+        .catch(err => errorEl.textContent = err.message, errorEl.style.display = 'block');
+    }
+
+    function adminLogout() { 
+      if (confirm('লগ আউট করবেন?')) {
+        [filesUnsubscribe, statsUnsubscribe, withdrawUnsubscribe].forEach(u => u && u());
+        auth.signOut().then(() => location.reload()); 
+      }
+    }
+
+    function showPage(page) {
+      document.querySelectorAll('.page').forEach(p => p.style.display = 'none');
+      document.getElementById(page).style.display = 'block';
+      document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+      const btn = document.querySelector(`.nav-btn[onclick="showPage('${page}')"]`);
+      if (btn) btn.classList.add('active');
+    }
+
+    function openWithdrawModal() {
+      document.getElementById('withdrawModal').classList.add('active');
+      loadWithdrawals();
+    }
+
+    function closeModal() {
+      document.getElementById('withdrawModal').classList.remove('active');
+    }
+
+    function loadSettings() {
+      const ref = db.collection('admin').doc('settings');
+      ref.get().then(doc => !doc.exists && ref.set({ gmailPrice: 6 }));
+      ref.onSnapshot(doc => {
+        const price = doc.exists ? doc.data().gmailPrice || 6 : 6;
+        GMAIL_PRICE = price;
+        document.getElementById('gmailPrice').textContent = `৳${price}`;
+        document.getElementById('priceInput').value = price;
+      });
+    }
+
+    function updateGmailPrice() {
+      const price = parseInt(document.getElementById('priceInput').value);
+      if (!price || price < 1) return alert('সঠিক দাম লিখুন');
+      if (!confirm(`দাম ৳${price} করবেন?`)) return;
+      db.collection('admin').doc('settings').set({ gmailPrice: price }, { merge: true })
+        .then(() => alert('দাম আপডেট হয়েছে!'))
+        .catch(err => alert('সমস্যা: ' + err.message));
+    }
+
+    function loadStats() {
+      if (statsUnsubscribe) statsUnsubscribe();
+      statsUnsubscribe = db.collection('users').onSnapshot(snap => {
+        let total = snap.size, pending = 0, paid = 0;
+        snap.forEach(doc => {
+          (doc.data().sellHistory || []).forEach(s => {
+            if (s.status === 'Pending') pending++;
+            if (s.status === 'Paid') paid += s.amount || 0;
+          });
+        });
+        document.getElementById('totalUsers').textContent = total;
+        document.getElementById('pendingSells').textContent = pending;
+        document.getElementById('totalPaid').textContent = `৳${paid}`;
+      });
+    }
+
+    function loadFiles() {
+      const list = document.getElementById('filesList');
+      list.innerHTML = '<p style="text-align:center;color:#777;">লোড হচ্ছে...</p>';
+
+      if (filesUnsubscribe) filesUnsubscribe();
+      filesUnsubscribe = db.collection('users').onSnapshot(snap => {
+        const entries = [];
+        snap.forEach(doc => {
+          (doc.data().sellHistory || []).forEach((h, i) => {
+            if (h.gmails && h.gmails.length > 0) {
+              entries.push({ uid: doc.id, email: doc.data().email, h, i, pending: h.status === 'Pending' });
+            }
+          });
+        });
+
+        entries.sort((a, b) => {
+          if (a.pending && !b.pending) return -1;
+          if (!a.pending && b.pending) return 1;
+          return (b.h.date || '').localeCompare(a.h.date || '');
+        });
+
+        list.innerHTML = entries.length === 0 ? '<p style="text-align:center;color:#777;">কোনো ফাইল নেই</p>' : entries.map(e => {
+          const count = e.h.gmails.length;
+          const expected = count * GMAIL_PRICE;
+          return `
+            <div class="file-card">
+              <div class="file-info">
+                <div class="email">${e.email}</div>
+                <div class="details">${e.h.date} • ${count} জিমেইল • <strong style="color:${e.pending?'#ffcc00':'#00ff88'}">${e.pending?'Pending':`Paid ৳${e.h.amount||0}`}</strong></div>
+              </div>
+              <div class="file-actions">
+                <button style="background:#00e5ff;color:#000;" onclick="downloadGmails('${e.uid}',${e.i},'txt')">TXT</button>
+                <button style="background:#ff6bcb;color:#000;" onclick="downloadGmails('${e.uid}',${e.i},'pdf')">PDF</button>
+                <button style="background:#00ff88;color:#000;" onclick="downloadGmails('${e.uid}',${e.i},'csv')">CSV</button>
+                <button style="background:#ffcc00;color:#000;" onclick="copyToClipboard('${e.uid}',${e.i})">Copy</button>
+                ${e.pending ? `<button style="background:#ffcc00;color:#000;" onclick="approveFile('${e.uid}',${e.i},${expected})">Approve</button>` : ''}
+                <button style="background:#ff3b5e;color:#fff;" onclick="deleteFile('${e.uid}',${e.i})">Delete</button>
+              </div>
+            </div>`;
+        }).join('');
+      });
+    }
+
+    function loadWithdrawals() {
+      const list = document.getElementById('withdrawList');
+      list.innerHTML = '<p style="text-align:center;color:#777;">লোড হচ্ছে...</p>';
+
+      if (withdrawUnsubscribe) withdrawUnsubscribe();
+      withdrawUnsubscribe = db.collection('users').onSnapshot(snap => {
+        const all = [];
+        snap.forEach(doc => {
+          (doc.data().withdrawHistory || []).forEach((w, i) => {
+            all.push({ uid: doc.id, email: doc.data().email, w, i, status: w.status || 'Pending' });
+          });
+        });
+
+        all.sort((a, b) => {
+          if (a.status === 'Pending' && b.status !== 'Pending') return -1;
+          if (a.status !== 'Pending' && b.status === 'Pending') return 1;
+          return (b.w.date || '').localeCompare(a.w.date || '');
+        });
+
+        list.innerHTML = all.length === 0 ? '<p style="text-align:center;color:#777;">কোনো রিকোয়েস্ট নেই</p>' : all.map(item => {
+          const cls = item.status === 'Paid' ? 'paid' : item.status === 'Cancelled' ? 'cancelled' : '';
+          const btns = item.status === 'Pending' ? 
+            `<button style="background:#00ff88;color:#000;" onclick="approveW('${item.uid}',${item.i})">Approve</button>
+             <button style="background:#ff3b5e;color:#fff;" onclick="cancelW('${item.uid}',${item.i},${item.w.amount})">Cancel</button>` :
+            `<span style="color:${item.status==='Paid'?'#00ff88':'#ff3b5e'}">${item.status}</span>`;
+          return `<div class="withdraw-item ${cls}">
+            <div><strong>${item.email}</strong> → ${item.w.number}<br>৳${item.w.amount} • ${item.w.date}</div>
+            <div>${btns}</div>
+          </div>`;
+        }).join('');
+      });
+    }
+
+    // ডাউনলোড ফাংশন
+    async function downloadGmails(uid, i, format) {
+      const doc = await db.collection('users').doc(uid).get();
+      const gmails = (doc.data().sellHistory || [])[i]?.gmails || [];
+      const email = doc.data().email.split('@')[0];
+
+      if (format === 'txt') {
+        const text = gmails.map(g => `${g.email}:${g.pass}`).join('\n');
+        downloadFile(text, `${email}_gmails.txt`, 'text/plain');
+      } else if (format === 'csv') {
+        const csv = 'Email,Password\n' + gmails.map(g => `${g.email},${g.pass}`).join('\n');
+        downloadFile(csv, `${email}_gmails.csv`, 'text/csv');
+      } else if (format === 'pdf') {
+        const doc = new jsPDF();
+        doc.setFontSize(12);
+        doc.text('Gmail Accounts', 10, 10);
+        let y = 20;
+        gmails.forEach((g, idx) => {
+          if (y > 280) { doc.addPage(); y = 20; }
+          doc.text(`${idx+1}. ${g.email} : ${g.pass}`, 10, y);
+          y += 10;
+        });
+        doc.save(`${email}_gmails.pdf`);
+      }
+    }
+
+    function downloadFile(content, filename, type) {
+      const blob = new Blob([content], { type });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url; a.download = filename; a.click();
+      URL.revokeObjectURL(url);
+    }
+
+    function copyToClipboard(uid, i) {
+      db.collection('users').doc(uid).get().then(doc => {
+        const gmails = (doc.data().sellHistory || [])[i]?.gmails || [];
+        const text = gmails.map(g => `${g.email}:${g.pass}`).join('\n');
+        navigator.clipboard.writeText(text).then(() => alert('কপি হয়েছে!'));
+      });
+    }
+
+    function approveFile(uid, i, expected) {
+      const amount = prompt(`কত টাকা দিবেন? (ডিফল্ট: ৳${expected})`, expected);
+      if (amount === null) return;
+      const final = parseInt(amount) || 0;
+      if (final < 0) return alert('সঠিক টাকা লিখুন');
+      if (!confirm(`৳${final} দিয়ে Approve করবেন?`)) return;
+
+      const userRef = db.collection('users').doc(uid);
+      db.runTransaction(t => t.get(userRef).then(doc => {
+        const h = [...doc.data().sellHistory];
+        h[i] = { ...h[i], status: 'Paid', amount: final };
+        t.update(userRef, { balance: firebase.firestore.FieldValue.increment(final), sellHistory: h });
+      })).then(() => alert('Paid!')).catch(err => alert('Error: ' + err.message));
+    }
+
+    function deleteFile(uid, i) {
+      if (!confirm('ডিলিট করবেন?')) return;
+      db.collection('users').doc(uid).get().then(doc => {
+        const h = (doc.data().sellHistory || []).filter((_, idx) => idx !== i);
+        db.collection('users').doc(uid).update({ sellHistory: h }).then(() => alert('ডিলিট হয়েছে!'));
+      });
+    }
+
+    function approveW(uid, i) {
+      if (!confirm('Approve করবেন?')) return;
+      const userRef = db.collection('users').doc(uid);
+      db.runTransaction(t => t.get(userRef).then(doc => {
+        const h = [...doc.data().withdrawHistory];
+        h[i].status = 'Paid';
+        t.update(userRef, { withdrawHistory: h });
+      })).then(() => alert('Paid!')).catch(err => alert('Error: ' + err.message));
+    }
+
+    function cancelW(uid, i, amount) {
+      if (!confirm('Cancel? টাকা ফেরত যাবে।')) return;
+      const userRef = db.collection('users').doc(uid);
+      db.runTransaction(t => t.get(userRef).then(doc => {
+        const h = [...doc.data().withdrawHistory];
+        h[i].status = 'Cancelled';
+        t.update(userRef, { balance: firebase.firestore.FieldValue.increment(amount), withdrawHistory: h });
+      })).then(() => alert('Cancelled!')).catch(err => alert('Error: ' + err.message));
+    }
+
+    auth.onAuthStateChanged(user => {
+      if (user && ADMIN_UID.includes(user.uid)) {
+        document.getElementById('loginContainer').style.display = 'none';
+        document.querySelector('.app').style.display = 'flex';
+        loadSettings();
+        loadStats();
+        loadFiles();
+      }
+    });
+  </script>
+</body>
+</html>
