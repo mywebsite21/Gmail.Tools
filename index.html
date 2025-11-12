@@ -284,18 +284,27 @@
         list.innerHTML = entries.length === 0 ? '<p style="text-align:center;color:#777;">কোনো ফাইল নেই</p>' : entries.map(e => {
           const count = e.h.gmails.length;
           const expected = count * GMAIL_PRICE;
+          const status = e.h.status || 'Pending';
+          const isPending = status === 'Pending';
+          const isCancelled = status === 'Cancelled';
+
           return `
             <div class="file-card">
               <div class="file-info">
                 <div class="email">${e.email}</div>
-                <div class="details">${e.h.date} • ${count} জিমেইল • <strong style="color:${e.pending?'#ffcc00':'#00ff88'}">${e.pending?'Pending':`Paid ৳${e.h.amount||0}`}</strong></div>
+                <div class="details">${e.h.date} • ${count} জিমেইল • <strong style="color:${
+                  isPending ? '#ffcc00' : isCancelled ? '#ff3b5e' : '#00ff88'
+                }">${isPending ? 'Pending' : isCancelled ? 'Cancelled' : `Paid ৳${e.h.amount||0}`}</strong></div>
               </div>
               <div class="file-actions">
                 <button style="background:#00e5ff;color:#000;" onclick="downloadGmails('${e.uid}',${e.i},'txt')">TXT</button>
                 <button style="background:#ff6bcb;color:#000;" onclick="downloadGmails('${e.uid}',${e.i},'pdf')">PDF</button>
                 <button style="background:#00ff88;color:#000;" onclick="downloadGmails('${e.uid}',${e.i},'csv')">CSV</button>
                 <button style="background:#ffcc00;color:#000;" onclick="copyToClipboard('${e.uid}',${e.i})">Copy</button>
-                ${e.pending ? `<button style="background:#ffcc00;color:#000;" onclick="approveFile('${e.uid}',${e.i},${expected})">Approve</button>` : ''}
+                ${isPending ? `
+                  <button style="background:#00ff88;color:#000;" onclick="approveFile('${e.uid}',${e.i},${expected})">Approve</button>
+                  <button style="background:#ff3b5e;color:#fff;" onclick="cancelFile('${e.uid}',${e.i})">Cancel</button>
+                ` : ''}
                 <button style="background:#ff3b5e;color:#fff;" onclick="deleteFile('${e.uid}',${e.i})">Delete</button>
               </div>
             </div>`;
@@ -391,6 +400,21 @@
         h[i] = { ...h[i], status: 'Paid', amount: final };
         t.update(userRef, { balance: firebase.firestore.FieldValue.increment(final), sellHistory: h });
       })).then(() => alert('Paid!')).catch(err => alert('Error: ' + err.message));
+    }
+
+    function cancelFile(uid, i) {
+      if (!confirm('ফাইলটি Cancel করবেন? এটা আর Approve করা যাবে না।')) return;
+
+      const userRef = db.collection('users').doc(uid);
+      db.runTransaction(t => t.get(userRef).then(doc => {
+        const h = [...doc.data().sellHistory];
+        h[i] = { ...h[i], status: 'Cancelled' };
+        t.update(userRef, { sellHistory: h });
+      })).then(() => {
+        alert('ফাইল Cancel করা হয়েছে!');
+      }).catch(err => {
+        alert('Error: ' + err.message);
+      });
     }
 
     function deleteFile(uid, i) {
